@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Distribución de Cartera</title>
+<style>
+  :root{
+    --bg: #10141A;
+    --panel: #171D25;
+    --panel-border: #232B36;
+    --ink: #EDE8DE;
+    --muted: #8B93A1;
+    --liq: #5EA8A0;
+    --rf: #C9A24B;
+    --rv: #8A5FBF;
+    --liq-dim: rgba(94,168,160,0.14);
+    --rf-dim: rgba(201,162,75,0.14);
+    --rv-dim: rgba(138,95,191,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding:32px 16px 60px;
+  }
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+  }
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 10px;
+    font-weight:600;
+  }
+  h1{
+    font-family:Georgia,'Times New Roman',serif;
+    font-weight:400;
+    font-size:clamp(28px,4vw,40px);
+    line-height:1.15;
+    margin:0 0 8px;
+    letter-spacing:-0.01em;
+  }
+  h1 em{
+    font-style:italic;
+    color:var(--rf);
+  }
+  .subtitle{
+    color:var(--muted);
+    font-size:15px;
+    line-height:1.5;
+    max-width:560px;
+    margin:0 0 36px;
+  }
+
+  /* --- live bar --- */
+  .bar-section{
+    margin-bottom:40px;
+  }
+  .bar{
+    display:flex;
+    width:100%;
+    height:64px;
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+  }
+  .seg{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    transition:flex-basis 0.5s cubic-bezier(.4,0,.2,1);
+    min-width:0;
+    position:relative;
+  }
+  .seg .pct{
+    font-family:Georgia,'Times New Roman',serif;
+    font-size:20px;
+    font-weight:700;
+    line-height:1;
+  }
+  .seg .lbl{
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    margin-top:3px;
+    opacity:0.85;
+  }
+  .seg.is-empty .pct,
+  .seg.is-empty .lbl{
+    display:none;
+  }
+  .seg-liq{ background:var(--liq); color:#0C1A18; }
+  .seg-rf{ background:var(--rf); color:#241C08; }
+  .seg-rv{ background:var(--rv); color:#F4EEFB; }
+
+  .legend{
+    display:flex;
+    gap:24px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  .legend-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .dot{
+    width:9px;height:9px;border-radius:50%;
+    flex-shrink:0;
+  }
+  .dot-liq{background:var(--liq);}
+  .dot-rf{background:var(--rf);}
+  .dot-rv{background:var(--rv);}
+
+  /* --- controls --- */
+  .controls{
+    display:grid;
+    gap:22px;
+  }
+  .control{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:20px 22px;
+  }
+  .control-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:14px;
+  }
+  .control-head .name{
+    font-size:14px;
+    font-weight:600;
+  }
+  .control-head .name .hint{
+    display:block;
+    font-weight:400;
+    font-size:12px;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  .control-head .val{
+    font-family:Georgia,'Times New Roman',serif;
+    font-size:22px;
+    color:var(--ink);
+    white-space:nowrap;
+    padding-left:12px;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    height:4px;
+    border-radius:2px;
+    background:#2A3340;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    appearance:none;
+    width:18px;height:18px;
+    border-radius:50%;
+    background:var(--ink);
+    border:3px solid var(--bg);
+    box-shadow:0 0 0 1px #2A3340;
+    cursor:pointer;
+    margin-top:-7px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px;height:18px;
+    border-radius:50%;
+    background:var(--ink);
+    border:3px solid var(--bg);
+    box-shadow:0 0 0 1px #2A3340;
+    cursor:pointer;
+  }
+  .scale-labels{
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+    color:var(--muted);
+    margin-top:8px;
+  }
+
+  .note{
+    margin-top:34px;
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.6;
+    border-top:1px solid var(--panel-border);
+    padding-top:18px;
+  }
+
+  @media (max-width:560px){
+    .bar{height:auto;flex-direction:column;}
+    .seg{padding:10px 0;flex-basis:auto !important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Revolución Financiera</p>
+  <h1>¿Cómo armar tu <em>cartera</em>?</h1>
+  <p class="subtitle">Movés las variables, vas viendo cómo cambia la distribución sugerida entre liquidez, renta fija y renta variable. No es una recomendación personalizada — es para entender la lógica.</p>
+
+  <div class="bar-section">
+    <div class="bar">
+      <div class="seg seg-liq" id="seg-liq">
+        <span class="pct" id="pct-liq">0%</span>
+        <span class="lbl">Liquidez</span>
+      </div>
+      <div class="seg seg-rf" id="seg-rf">
+        <span class="pct" id="pct-rf">0%</span>
+        <span class="lbl">Renta Fija</span>
+      </div>
+      <div class="seg seg-rv" id="seg-rv">
+        <span class="pct" id="pct-rv">0%</span>
+        <span class="lbl">Renta Variable</span>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="dot dot-liq"></span>Liquidez</div>
+      <div class="legend-item"><span class="dot dot-rf"></span>Renta Fija</div>
+      <div class="legend-item"><span class="dot dot-rv"></span>Renta Variable</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control">
+      <div class="control-head">
+        <div class="name">Edad<span class="hint">Ancla inicial de perfil de riesgo</span></div>
+        <div class="val"><span id="val-edad">30</span> años</div>
+      </div>
+      <input type="range" id="edad" min="18" max="70" value="30">
+      <div class="scale-labels"><span>18</span><span>70</span></div>
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <div class="name">Horizonte temporal<span class="hint">¿Para cuándo pensás usar esta plata?</span></div>
+        <div class="val"><span id="val-horizonte">10</span> años</div>
+      </div>
+      <input type="range" id="horizonte" min="1" max="30" value="10">
+      <div class="scale-labels"><span>1 año</span><span>30+ años</span></div>
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <div class="name">Necesidad de liquidez<span class="hint">¿Qué tan probable es que necesites parte de golpe?</span></div>
+        <div class="val"><span id="val-liquidez">5</span>/10</div>
+      </div>
+      <input type="range" id="liquidez" min="1" max="10" value="5">
+      <div class="scale-labels"><span>Baja</span><span>Alta</span></div>
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <div class="name">Tolerancia al riesgo<span class="hint">¿Cómo reaccionás ante caídas fuertes?</span></div>
+        <div class="val"><span id="val-riesgo">5</span>/10</div>
+      </div>
+      <input type="range" id="riesgo" min="1" max="10" value="5">
+      <div class="scale-labels"><span>Baja</span><span>Alta</span></div>
+    </div>
+  </div>
+
+  <p class="note">Simulador con fines educativos — no constituye recomendación de inversión personalizada. Los porcentajes surgen de un modelo simplificado que combina edad, horizonte, necesidad de liquidez y tolerancia al riesgo declarada, con pisos y techos para evitar resultados extremos.</p>
+</div>
+
+<script>
+  const els = {
+    edad: document.getElementById('edad'),
+    horizonte: document.getElementById('horizonte'),
+    liquidez: document.getElementById('liquidez'),
+    riesgo: document.getElementById('riesgo'),
+  };
+  const valEls = {
+    edad: document.getElementById('val-edad'),
+    horizonte: document.getElementById('val-horizonte'),
+    liquidez: document.getElementById('val-liquidez'),
+    riesgo: document.getElementById('val-riesgo'),
+  };
+
+  // Hard limits (tunable)
+  const LIMITS = {
+    liqMin: 5, liqMax: 60,
+    rvMin: 5, rvMax: 80,
+    rfMin: 5
+  };
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  function lerp(v, inMin, inMax, outMin, outMax){
+    const t = clamp((v - inMin) / (inMax - inMin), 0, 1);
+    return outMin + t * (outMax - outMin);
+  }
+
+  function compute(){
+    const edad = +els.edad.value;
+    const horizonte = +els.horizonte.value;
+    const liqNecesidad = +els.liquidez.value; // 1-10
+    const riesgo = +els.riesgo.value; // 1-10
+
+    // Liquidez: dominada por "necesidad de liquidez declarada"
+    let liq = 10 + ((liqNecesidad - 1) / 9) * 50; // 10% -> 60%
+    liq = clamp(liq, LIMITS.liqMin, LIMITS.liqMax);
+
+    // Renta variable: la tolerancia al riesgo es el eje principal, con una
+    // curva continua de 1 a 10 (sin saltos). Horizonte y edad entran como
+    // ajustes suaves sobre esa curva, no como un score independiente.
+    const scoreHorizonte = clamp(horizonte / 30, 0, 1);
+    const scoreEdad = clamp((70 - edad) / 52, 0, 1);
+
+    const baseRiesgo = lerp(riesgo, 1, 10, 10, 70); // riesgo 1 -> 10%, riesgo 10 -> 70%
+    const ajusteHorizonte = (scoreHorizonte - 0.5) * 20; // hasta +/-10 pts
+    const ajusteEdad = (scoreEdad - 0.5) * 16; // hasta +/-8 pts (~25% del peso)
+
+    let rv = baseRiesgo + ajusteHorizonte + ajusteEdad;
+    rv = clamp(rv, LIMITS.rvMin, LIMITS.rvMax);
+
+    // Regla: horizonte de 1 año + tolerancia al riesgo baja (1-4) => sin renta variable.
+    // Regla: horizonte de 1 año limita la renta variable a 10%,
+    // salvo perfil muy arriesgado (riesgo > 7), donde el techo sube.
+    if (horizonte <= 1) {
+      if (riesgo <= 4) {
+        rv = 0;
+      } else {
+        const cap = riesgo > 7 ? lerp(riesgo, 7, 10, 10, 35) : 10;
+        rv = Math.min(rv, cap);
+      }
+    }
+
+    // El piso general de renta variable (rvMin) no aplica cuando una regla
+    // explícita fijó el valor en 0 (horizonte=1 + riesgo bajo).
+    const rvForcedZero = (horizonte <= 1 && riesgo <= 4);
+    rv = rvForcedZero ? 0 : clamp(rv, LIMITS.rvMin, LIMITS.rvMax);
+    let rf = 100 - liq - rv;
+
+    // Si renta fija queda por debajo del piso, recortamos primero liquidez
+    // (rv ya quedó fijado por las reglas de arriba) y solo tocamos rv
+    // como último recurso si no alcanza.
+    if (rf < LIMITS.rfMin) {
+      let deficit = LIMITS.rfMin - rf;
+      const liqRoom = liq - LIMITS.liqMin;
+      const liqCut = Math.min(deficit, liqRoom);
+      liq -= liqCut;
+      deficit -= liqCut;
+      if (deficit > 0) {
+        const rvRoom = Math.max(0, rv - LIMITS.rvMin);
+        const rvCut = Math.min(deficit, rvRoom);
+        rv -= rvCut;
+      }
+      rf = 100 - liq - rv;
+    }
+
+    // Redondeo cuidando que sumen 100
+    liq = Math.round(liq);
+    rv = Math.round(rv);
+    rf = 100 - liq - rv;
+
+    // Caso especial: horizonte de 1 año + riesgo bajo (1-4) + necesidad de
+    // liquidez alta (8-10) => cartera defensiva fija: 80% liquidez, 20% renta
+    // fija, sin renta variable. Pisa cualquier otro cálculo.
+    if (horizonte <= 1 && riesgo <= 4 && liqNecesidad >= 8) {
+      liq = 80;
+      rf = 20;
+      rv = 0;
+    }
+
+    return { liq, rf, rv };
+  }
+
+  function render(){
+    valEls.edad.textContent = els.edad.value;
+    valEls.horizonte.textContent = els.horizonte.value;
+    valEls.liquidez.textContent = els.liquidez.value;
+    valEls.riesgo.textContent = els.riesgo.value;
+
+    const { liq, rf, rv } = compute();
+
+    const segLiq = document.getElementById('seg-liq');
+    const segRf = document.getElementById('seg-rf');
+    const segRv = document.getElementById('seg-rv');
+
+    segLiq.style.flexBasis = liq + '%';
+    segRf.style.flexBasis = rf + '%';
+    segRv.style.flexBasis = rv + '%';
+
+    segLiq.classList.toggle('is-empty', liq === 0);
+    segRf.classList.toggle('is-empty', rf === 0);
+    segRv.classList.toggle('is-empty', rv === 0);
+
+    document.getElementById('pct-liq').textContent = liq + '%';
+    document.getElementById('pct-rf').textContent = rf + '%';
+    document.getElementById('pct-rv').textContent = rv + '%';
+  }
+
+  Object.values(els).forEach(el => el.addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>
