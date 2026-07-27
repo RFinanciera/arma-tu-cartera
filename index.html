@@ -188,7 +188,10 @@
     border:1px solid var(--border);
     padding:28px;
     margin-bottom:28px;
-    box-shadow:var(--shadow-sm);
+    box-shadow:var(--shadow-md);
+    position:sticky;
+    top:73px;
+    z-index:50;
   }
   .bar{
     display:flex;
@@ -507,6 +510,7 @@
 
   @media (max-width:560px){
     .header-title{ display:none; }
+    .bar-card{ position:static; }
     .bar{ height:auto; flex-direction:column; }
     .seg{ padding:12px 0; flex-basis:auto !important; }
     .curso-card{ padding:32px 24px; }
